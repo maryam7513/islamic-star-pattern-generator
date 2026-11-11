@@ -13,12 +13,17 @@ common in the Islamic world.
 - Pattern generation
     - This will mostly be with something like Kaplan's
       algorithm.
+    - The user will be able to adjust various parameters
+      to customize the pattern, such as angle, the core
+      tiling to use, and the color of the pattern.
 - Image output
 	- Using `pillow` to output the pattern to an image,
       which could be used as a texture.
-- (Possible, no gurantee) GUI
+- (Possible, no guarantee) GUI
 	- GUI allowing live-preview, perhaps using something
       like pygame.
+    - This would be more of a nice-to-have feature, but
+      the priority is the core pattern generation.
 
 ## Challenges
 - Performance, especially with larger patterns
@@ -30,7 +35,9 @@ parameters, with a live view of the final pattern.
 
 Minimal Viable Outcome:
 The bare essential in my opinion would be a command-line
-tool that is easy to use.
+tool that is easy to use. The user would be able to supply
+arguments to adjust parameters such as the core tiling used
+and the angle used in pattern generation.
 
 ## Milestones
 

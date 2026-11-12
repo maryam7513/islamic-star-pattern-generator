@@ -5,8 +5,8 @@ import cairo
 from src import tilings
 from src import geometry_types as gt
 
-X_GRID_RANGE = 10
-Y_GRID_RANGE = 10
+X_GRID_RANGE = 1
+Y_GRID_RANGE = 1
 ZOOM_OUT = 2
 
 VIEW_X_GRID_RANGE = 1000
@@ -44,13 +44,25 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Se
     rays: list[gt.Ray] = []
     for i in range(n):
         segment = polygon.segments[i]
-
         midpoint = segment.midpoint()
-        edge_dir = (segment.end - segment.start).normalize()
-        inward_normal = gt.Vector2(-edge_dir.y, edge_dir.x)
 
+        edge_dir = (segment.end - segment.start).normalize()
         origin_a = midpoint - (edge_dir * DELTA)
         origin_b = midpoint + (edge_dir * DELTA)
+
+        # Use the slope of the line
+        # perpendicular to the segment
+        # as the basis for the normal.
+        change_x, change_y = edge_dir.x, edge_dir.y
+        if change_y == 0:
+            perpendicular_slope = 1
+        else:
+            perpendicular_slope = -(change_x/change_y)
+
+        target_point = gt.Vector2(midpoint.x + 0.25, perpendicular_slope*(midpoint.x + 0.25) + midpoint.y)
+        if not polygon.in_bounds(target_point):
+            target_point = gt.Vector2(midpoint.x - 0.25, perpendicular_slope*(midpoint.x - 0.25) + midpoint.y)
+        inward_normal = (target_point - midpoint).normalize()
 
         direction_a = (edge_dir * math.cos(CONTACT_ANGLE)) + (inward_normal * math.sin(CONTACT_ANGLE))
         direction_b = (edge_dir * -math.cos(CONTACT_ANGLE)) + (inward_normal * math.sin(CONTACT_ANGLE))
@@ -106,6 +118,9 @@ def main():
         rays += new_rays
         star_segments += new_segments
 
+    print(tiling.tiles)
+    print(len(rays))
+
     x_scale_factor, y_scale_factor = VIEW_X_GRID_RANGE / X_GRID_RANGE, VIEW_Y_GRID_RANGE / Y_GRID_RANGE
     with cairo.SVGSurface("output.svg", VIEW_X_GRID_RANGE, VIEW_Y_GRID_RANGE) as surface:
         context = cairo.Context(surface)
@@ -129,8 +144,9 @@ def main():
                 context.line_to(end_x, end_y)
                 context.stroke()
 
-        context.set_source_rgb(0, 0, 0)
         for ray in rays:
+            current_color = RED if current_color == BLUE else BLUE
+            context.set_source_rgb(*current_color)
             normalized_direction = ray.direction.normalize()
             ray_end = ray.origin + (normalized_direction * 0.25)
             start_x = ray.origin.x * x_scale_factor
@@ -144,7 +160,6 @@ def main():
 
         return
         for segment in star_segments:
-
             # We have to flip the Y-coordinates for SVG
             start_x = segment.start.x * x_scale_factor
             start_y = VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor)

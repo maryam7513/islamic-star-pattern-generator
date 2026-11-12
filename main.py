@@ -16,7 +16,7 @@ VIEW_Y_GRID_RANGE = 1000
 # TODO: Make this command line arguments
 CONTACT_ANGLE = math.radians(50)
 DELTA = 0.0
-STEP = 2
+STEP = 1
 
 
 # Most of this code is borrowed from a side
@@ -58,6 +58,20 @@ def kaplan_star_generator(polygon: gt.Polygon) -> list[gt.Segment]:
         rays.append(gt.Ray(origin_a, direction_a))
         rays.append(gt.Ray(origin_b, direction_b))
 
+    # Intersections are only considered if
+    # they occur within the bounds of the tile
+    smallest_x, smallest_y = -1, -1
+    largest_x, largest_y = -1, -1
+    for vertex in polygon.vertices:
+        if smallest_x == -1 or vertex.x < smallest_x:
+            smallest_x = vertex.x
+        if smallest_y == -1 or vertex.y < smallest_y:
+            smallest_y = vertex.y
+        if largest_x == -1 or vertex.x > largest_x:
+            largest_x = vertex.x
+        if largest_y == -1 or vertex.y > largest_y:
+            largest_x = vertex.y
+
     intersections_and_costs: list[tuple[gt.Ray, gt.Ray, gt.Vector2, float]] = []
     for ray1 in rays:
         for ray2 in rays:
@@ -68,6 +82,10 @@ def kaplan_star_generator(polygon: gt.Polygon) -> list[gt.Segment]:
                 u, v = res
                 cost = u + v
                 point = ray1.origin + ray1.direction * u
+
+                if point.x < smallest_x or point.y > largest_x or point.y < smallest_y or point.y > largest_x:
+                    continue
+
                 intersections_and_costs.append((ray1, ray2, point, cost))
 
     intersections_and_costs.sort(key=lambda x: x[3])

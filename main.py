@@ -102,6 +102,25 @@ def main():
     x_scale_factor, y_scale_factor = VIEW_X_GRID_RANGE / X_GRID_RANGE, VIEW_Y_GRID_RANGE / Y_GRID_RANGE
     with cairo.SVGSurface("output.svg", VIEW_X_GRID_RANGE, VIEW_Y_GRID_RANGE) as surface:
         context = cairo.Context(surface)
+
+        # Debug, see source tilings
+        RED = (1, 0, 0)
+        BLUE = (0, 0, 1)
+        current_color = RED
+        for tile in tiling.tiles:
+            # Alternate per tile to make
+            # debugging easier
+            current_color = RED if current_color == BLUE else BLUE
+            context.set_source_rgb(*current_color)
+            for segment in tile.segments:
+                start_x = segment.start.x * x_scale_factor
+                start_y = VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor)
+                end_x = segment.end.x * x_scale_factor
+                end_y = VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor)
+                context.move_to(start_x, start_y)
+                context.line_to(end_x, end_y)
+                context.stroke()
+
         context.set_source_rgb(0, 0, 0)
         for segment in star_segments:
             context.set_line_width(0.5)

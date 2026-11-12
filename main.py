@@ -1,11 +1,16 @@
 import math
 
+import cairo
+
 from src import tilings
 from src import geometry_types as gt
 
 X_GRID_RANGE = 10
 Y_GRID_RANGE = 10
 ZOOM_OUT = 2
+
+VIEW_X_GRID_RANGE = 1000
+VIEW_Y_GRID_RANGE = 1000
 
 # Star pattern parameters
 # TODO: Make this command line arguments
@@ -93,6 +98,23 @@ def main():
     star_segments: list[gt.Segment] = []
     for tile in tiling.tiles:
         star_segments += kaplan_star_generator(tile)
+
+    x_scale_factor, y_scale_factor = VIEW_X_GRID_RANGE / X_GRID_RANGE, VIEW_Y_GRID_RANGE / Y_GRID_RANGE
+    with cairo.SVGSurface("output.svg", VIEW_X_GRID_RANGE, VIEW_Y_GRID_RANGE) as surface:
+        context = cairo.Context(surface)
+        context.set_source_rgb(0, 0, 0)
+        for segment in star_segments:
+            context.set_line_width(0.5)
+
+            # We have to flip the Y-coordinates for SVG
+            start_x = segment.start.x * x_scale_factor
+            start_y = VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor)
+            end_x = segment.end.x * x_scale_factor
+            end_y = VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor)
+
+            context.move_to(start_x, start_y)
+            context.line_to(end_x, end_y)
+            context.stroke()
 
 if __name__ == "__main__":
     main()

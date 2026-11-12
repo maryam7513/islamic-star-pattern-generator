@@ -39,7 +39,7 @@ def get_ray_intersection(ray1: gt.Ray, ray2: gt.Ray) -> tuple[float, float] | No
         return
     return u, v
 
-def kaplan_star_generator(polygon: gt.Polygon) -> list[gt.Segment]:
+def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Segment]]:
     n = len(polygon.segments)
     rays: list[gt.Ray] = []
     for i in range(n):
@@ -108,18 +108,22 @@ def kaplan_star_generator(polygon: gt.Polygon) -> list[gt.Segment]:
         encountered_rays[ray1] = ray1_encounters
         encountered_rays[ray2] = ray2_encounters
 
-    return star_segments
+    return rays, star_segments
 
 def main():
     tiling = tilings.regular_square_tiling(X_GRID_RANGE, Y_GRID_RANGE)
 
+    rays: list[gt.Ray] = []
     star_segments: list[gt.Segment] = []
     for tile in tiling.tiles:
-        star_segments += kaplan_star_generator(tile)
+        new_rays, new_segments = kaplan_star_generator(tile)
+        rays += new_rays
+        star_segments += new_segments
 
     x_scale_factor, y_scale_factor = VIEW_X_GRID_RANGE / X_GRID_RANGE, VIEW_Y_GRID_RANGE / Y_GRID_RANGE
     with cairo.SVGSurface("output.svg", VIEW_X_GRID_RANGE, VIEW_Y_GRID_RANGE) as surface:
         context = cairo.Context(surface)
+        context.set_line_width(0.5)
 
         # Debug, see source tilings
         RED = (1, 0, 0)
@@ -140,8 +144,20 @@ def main():
                 context.stroke()
 
         context.set_source_rgb(0, 0, 0)
+        for ray in rays:
+            normalized_direction = ray.direction.normalize()
+            ray_end = ray.origin + (normalized_direction * 0.25)
+            start_x = ray.origin.x * x_scale_factor
+            start_y = VIEW_Y_GRID_RANGE - (ray.origin.y * y_scale_factor)
+            end_x = ray_end.x * x_scale_factor
+            end_y = VIEW_Y_GRID_RANGE - (ray_end.y * y_scale_factor)
+
+            context.move_to(start_x, start_y)
+            context.line_to(end_x, end_y)
+            context.stroke()
+
+        return
         for segment in star_segments:
-            context.set_line_width(0.5)
 
             # We have to flip the Y-coordinates for SVG
             start_x = segment.start.x * x_scale_factor

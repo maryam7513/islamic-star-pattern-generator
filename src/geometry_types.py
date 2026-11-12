@@ -40,10 +40,19 @@ class Ray:
     origin: Vector2
     direction: Vector2
 
-@dataclass(frozen=True)
+@dataclass
 class Polygon:
     vertices: list[Vector2]
     segments: list[Segment]
+    bounds_x: tuple[float, float] = field(init=False)
+    bounds_y: tuple[float, float] = field(init=False)
+
+    def __post_init__(self):
+        self.bounds_x = (min(p.x for p in self.vertices), max(p.x for p in self.vertices))
+        self.bounds_y = (min(p.y for p in self.vertices), max(p.y for p in self.vertices))
+
+    def in_bounds(self, point: Vector2) -> bool:
+        return self.bounds_x[0] < point.x < self.bounds_x[1] and self.bounds_y[0] < point.y < self.bounds_y[1]
 
 @dataclass(frozen=True)
 class Tiling:

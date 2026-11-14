@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
+from decimal import Decimal
 import math
 
 @dataclass(frozen=True)
 class Vector2:
-    x: float
-    y: float
+    x: Decimal
+    y: Decimal
 
     def __add__(self, other: 'Vector2') -> 'Vector2':
         return Vector2(self.x + other.x, self.y + other.y)
@@ -12,17 +13,17 @@ class Vector2:
     def __sub__(self, other: 'Vector2') -> 'Vector2':
         return Vector2(self.x - other.x, self.y - other.y)
 
-    def __mul__(self, scalar: float) -> 'Vector2':
+    def __mul__(self, scalar: Decimal) -> 'Vector2':
         return Vector2(self.x * scalar, self.y * scalar)
 
-    def __truediv__(self, scalar: float) -> 'Vector2':
+    def __truediv__(self, scalar: Decimal) -> 'Vector2':
         return Vector2(self.x / scalar, self.y / scalar)
 
-    def cross(self, other: 'Vector2') -> float:
+    def cross(self, other: 'Vector2') -> Decimal:
         return self.x * other.y - self.y * other.x
 
-    def magnitude(self) -> float:
-        return math.hypot(self.x, self.y)
+    def magnitude(self) -> Decimal:
+        return Decimal(math.hypot(self.x, self.y))
 
     def normalize(self) -> 'Vector2':
         return self / self.magnitude()
@@ -33,7 +34,7 @@ class Segment:
     end: Vector2
 
     def midpoint(self) -> Vector2:
-        return (self.start + self.end) / 2
+        return (self.start + self.end) / Decimal(2)
 
 @dataclass(frozen=True)
 class Ray:
@@ -44,8 +45,8 @@ class Ray:
 class Polygon:
     vertices: list[Vector2]
     segments: list[Segment]
-    bounds_x: tuple[float, float] = field(init=False)
-    bounds_y: tuple[float, float] = field(init=False)
+    bounds_x: tuple[Decimal, Decimal] = field(init=False)
+    bounds_y: tuple[Decimal, Decimal] = field(init=False)
 
     def __post_init__(self):
         self.bounds_x = (min(p.x for p in self.vertices), max(p.x for p in self.vertices))

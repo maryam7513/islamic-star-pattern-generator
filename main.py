@@ -1,3 +1,4 @@
+from decimal import Decimal, getcontext
 import math
 
 import cairo
@@ -14,15 +15,15 @@ VIEW_Y_GRID_RANGE = 1000
 
 # Star pattern parameters
 # TODO: Make this command line arguments
-CONTACT_ANGLE = math.radians(50)
-DELTA = 0.0
+CONTACT_ANGLE = Decimal(math.radians(50))
+DELTA = Decimal(0.0)
 STEP = 1
 
 
 # Most of this code is borrowed from a side
 # project, which I decided to turn into my
 # final project.
-def get_ray_intersection(ray1: gt.Ray, ray2: gt.Ray) -> tuple[float, float] | None:
+def get_ray_intersection(ray1: gt.Ray, ray2: gt.Ray) -> tuple[Decimal, Decimal] | None:
     if ray1.origin == ray2.origin:
         return
 
@@ -59,18 +60,25 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Se
         else:
             perpendicular_slope = -(change_x/change_y)
 
-        target_point = gt.Vector2(midpoint.x + 0.25, perpendicular_slope*(midpoint.x + 0.25) + midpoint.y)
+        dx = Decimal(0.25)
+        target_point = gt.Vector2(midpoint.x + dx, perpendicular_slope*(midpoint.x + dx))
+        print("midpoint", midpoint)
+        print("before", target_point, polygon.in_bounds(target_point))
         if not polygon.in_bounds(target_point):
-            target_point = gt.Vector2(midpoint.x - 0.25, perpendicular_slope*(midpoint.x - 0.25) + midpoint.y)
+            target_point = gt.Vector2(midpoint.x - dx, perpendicular_slope*(midpoint.x - dx))
+        print("after", target_point, polygon.in_bounds(target_point))
+
         inward_normal = (target_point - midpoint).normalize()
 
-        direction_a = (edge_dir * math.cos(CONTACT_ANGLE)) + (inward_normal * math.sin(CONTACT_ANGLE))
-        direction_b = (edge_dir * -math.cos(CONTACT_ANGLE)) + (inward_normal * math.sin(CONTACT_ANGLE))
+        sin_of_angle = Decimal(math.sin(CONTACT_ANGLE))
+        cos_of_angle = Decimal(math.cos(CONTACT_ANGLE))
+        direction_a = (edge_dir * cos_of_angle) + (inward_normal * sin_of_angle)
+        direction_b = (edge_dir * -cos_of_angle) + (inward_normal * sin_of_angle)
 
         rays.append(gt.Ray(origin_a, direction_a))
         rays.append(gt.Ray(origin_b, direction_b))
 
-    intersections_and_costs: list[tuple[gt.Ray, gt.Ray, gt.Vector2, float]] = []
+    intersections_and_costs: list[tuple[gt.Ray, gt.Ray, gt.Vector2, Decimal]] = []
     for ray1 in rays:
         for ray2 in rays:
             if ray1 != ray2 and ray1.origin != ray2.origin:
@@ -109,6 +117,10 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Se
     return rays, star_segments
 
 def main():
+    # We use the Decimal module in the Python standard
+    # library because it has more precise floats, and
+    # avoids floating point woes.
+    getcontext().prec = 3
     tiling = tilings.regular_square_tiling(X_GRID_RANGE, Y_GRID_RANGE)
 
     rays: list[gt.Ray] = []
@@ -118,10 +130,9 @@ def main():
         rays += new_rays
         star_segments += new_segments
 
-    print(tiling.tiles)
-    print(len(rays))
+    print(rays)
 
-    x_scale_factor, y_scale_factor = VIEW_X_GRID_RANGE / X_GRID_RANGE, VIEW_Y_GRID_RANGE / Y_GRID_RANGE
+    x_scale_factor, y_scale_factor = Decimal(VIEW_X_GRID_RANGE / X_GRID_RANGE), Decimal(VIEW_Y_GRID_RANGE / Y_GRID_RANGE)
     with cairo.SVGSurface("output.svg", VIEW_X_GRID_RANGE, VIEW_Y_GRID_RANGE) as surface:
         context = cairo.Context(surface)
         context.set_line_width(0.5)
@@ -136,10 +147,10 @@ def main():
             current_color = RED if current_color == BLUE else BLUE
             context.set_source_rgb(*current_color)
             for segment in tile.segments:
-                start_x = segment.start.x * x_scale_factor
-                start_y = VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor)
-                end_x = segment.end.x * x_scale_factor
-                end_y = VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor)
+                start_x = float(segment.start.x * x_scale_factor)
+                start_y = float(VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor))
+                end_x = float(segment.end.x * x_scale_factor)
+                end_y = float(VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor))
                 context.move_to(start_x, start_y)
                 context.line_to(end_x, end_y)
                 context.stroke()
@@ -148,11 +159,11 @@ def main():
             current_color = RED if current_color == BLUE else BLUE
             context.set_source_rgb(*current_color)
             normalized_direction = ray.direction.normalize()
-            ray_end = ray.origin + (normalized_direction * 0.25)
-            start_x = ray.origin.x * x_scale_factor
-            start_y = VIEW_Y_GRID_RANGE - (ray.origin.y * y_scale_factor)
-            end_x = ray_end.x * x_scale_factor
-            end_y = VIEW_Y_GRID_RANGE - (ray_end.y * y_scale_factor)
+            ray_end = ray.origin + (normalized_direction * Decimal(0.25))
+            start_x = float(ray.origin.x * x_scale_factor)
+            start_y = float(VIEW_Y_GRID_RANGE - (ray.origin.y * y_scale_factor))
+            end_x = float(ray_end.x * x_scale_factor)
+            end_y = float(VIEW_Y_GRID_RANGE - (ray_end.y * y_scale_factor))
 
             context.move_to(start_x, start_y)
             context.line_to(end_x, end_y)

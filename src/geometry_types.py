@@ -53,7 +53,7 @@ class Polygon:
         self.bounds_y = (min(p.y for p in self.vertices), max(p.y for p in self.vertices))
 
     def in_bounds(self, point: Vector2) -> bool:
-        return self.bounds_x[0] < point.x < self.bounds_x[1] and self.bounds_y[0] < point.y < self.bounds_y[1]
+        return self.bounds_x[0] <= point.x <= self.bounds_x[1] and self.bounds_y[0] <= point.y <= self.bounds_y[1]
 
 @dataclass(frozen=True)
 class Tiling:

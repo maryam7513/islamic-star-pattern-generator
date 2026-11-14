@@ -4,8 +4,8 @@ from . import geometry_types as gt
 def regular_square_tiling(x_grid_range: int, y_grid_range: int) -> gt.Tiling:
     """Create a grid of regular squares."""
     tiling = gt.Tiling()
-    for y in range(0, y_grid_range+1):
-        for x in range(0, x_grid_range+1):
+    for y in range(0, y_grid_range):
+        for x in range(0, x_grid_range):
             vertex_ll = gt.Vector2(x, y)
             vertex_tl = gt.Vector2(x, y+1)
             vertex_lr = gt.Vector2(x+1, y)

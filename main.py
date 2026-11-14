@@ -6,8 +6,8 @@ import cairo
 from src import tilings
 from src import geometry_types as gt
 
-X_GRID_RANGE = 3
-Y_GRID_RANGE = 3
+X_GRID_RANGE = 10
+Y_GRID_RANGE = 10
 ZOOM_OUT = 2
 
 VIEW_X_GRID_RANGE = 1000
@@ -15,7 +15,7 @@ VIEW_Y_GRID_RANGE = 1000
 
 # Star pattern parameters
 # TODO: Make this command line arguments
-CONTACT_ANGLE = Decimal(math.radians(50))
+CONTACT_ANGLE = Decimal(math.radians(30))
 DELTA = Decimal(0.0)
 STEP = 1
 
@@ -107,7 +107,7 @@ def main():
     # library because it has more precise floats, and
     # avoids floating point woes.
     getcontext().prec = 4
-    tiling = tilings.regular_square_tiling(X_GRID_RANGE, Y_GRID_RANGE)
+    tiling = tilings.right_triangle_tiling(X_GRID_RANGE, Y_GRID_RANGE)
 
     rays: list[gt.Ray] = []
     star_segments: list[gt.Segment] = []
@@ -115,8 +115,6 @@ def main():
         new_rays, new_segments = kaplan_star_generator(tile)
         rays += new_rays
         star_segments += new_segments
-
-    print(rays)
 
     x_scale_factor, y_scale_factor = Decimal(VIEW_X_GRID_RANGE / X_GRID_RANGE), Decimal(VIEW_Y_GRID_RANGE / Y_GRID_RANGE)
     with cairo.SVGSurface("output.svg", VIEW_X_GRID_RANGE, VIEW_Y_GRID_RANGE) as surface:
@@ -156,12 +154,14 @@ def main():
             context.stroke()
 
         return
+
+        context.set_source_rgb(0, 0, 0)
         for segment in star_segments:
             # We have to flip the Y-coordinates for SVG
-            start_x = segment.start.x * x_scale_factor
-            start_y = VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor)
-            end_x = segment.end.x * x_scale_factor
-            end_y = VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor)
+            start_x = float(segment.start.x * x_scale_factor)
+            start_y = float(VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor))
+            end_x = float(segment.end.x * x_scale_factor)
+            end_y = float(VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor))
 
             context.move_to(start_x, start_y)
             context.line_to(end_x, end_y)

@@ -6,8 +6,8 @@ import cairo
 from src import tilings
 from src import geometry_types as gt
 
-X_GRID_RANGE = 1
-Y_GRID_RANGE = 1
+X_GRID_RANGE = 3
+Y_GRID_RANGE = 3
 ZOOM_OUT = 2
 
 VIEW_X_GRID_RANGE = 1000
@@ -51,24 +51,10 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Se
         origin_a = midpoint - (edge_dir * DELTA)
         origin_b = midpoint + (edge_dir * DELTA)
 
-        # Use the slope of the line
-        # perpendicular to the segment
-        # as the basis for the normal.
-        change_x, change_y = edge_dir.x, edge_dir.y
-        if change_y == 0:
-            perpendicular_slope = 1
-        else:
-            perpendicular_slope = -(change_x/change_y)
-
-        dx = Decimal(0.25)
-        target_point = gt.Vector2(midpoint.x + dx, perpendicular_slope*(midpoint.x + dx))
-        print("midpoint", midpoint)
-        print("before", target_point, polygon.in_bounds(target_point))
-        if not polygon.in_bounds(target_point):
-            target_point = gt.Vector2(midpoint.x - dx, perpendicular_slope*(midpoint.x - dx))
-        print("after", target_point, polygon.in_bounds(target_point))
-
-        inward_normal = (target_point - midpoint).normalize()
+        # Rotate by 90 degrees to get the normal
+        inward_normal = gt.Vector2(edge_dir.y, -edge_dir.x)
+        if not polygon.in_bounds(midpoint + inward_normal * Decimal(0.01)):
+            inward_normal = gt.Vector2(-edge_dir.y, edge_dir.x)
 
         sin_of_angle = Decimal(math.sin(CONTACT_ANGLE))
         cos_of_angle = Decimal(math.cos(CONTACT_ANGLE))
@@ -120,7 +106,7 @@ def main():
     # We use the Decimal module in the Python standard
     # library because it has more precise floats, and
     # avoids floating point woes.
-    getcontext().prec = 3
+    getcontext().prec = 4
     tiling = tilings.regular_square_tiling(X_GRID_RANGE, Y_GRID_RANGE)
 
     rays: list[gt.Ray] = []

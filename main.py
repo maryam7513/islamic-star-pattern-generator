@@ -1,4 +1,5 @@
-from decimal import Decimal, getcontext
+from dataclasses import dataclass
+from decimal import Decimal, DivisionByZero, InvalidOperation, getcontext
 import itertools
 import math
 
@@ -16,10 +17,18 @@ VIEW_Y_GRID_RANGE = 1000
 
 # Star pattern parameters
 # TODO: Make this command line arguments
-CONTACT_ANGLE = Decimal(math.radians(25))
-DELTA = Decimal(0.1)
-STEP = 1
+CONTACT_ANGLE = Decimal(math.radians(50))
+DELTA = Decimal(0.0)
+STEPS = 3
 
+@dataclass(frozen=True)
+class RayIntersection:
+    ray1: gt.Ray
+    ray2: gt.Ray
+    point: gt.Vector2
+    cost: Decimal
+    ray1_sibling: gt.Ray
+    ray2_sibling: gt.Ray
 
 # Most of this code is borrowed from a side
 # project, which I decided to turn into my
@@ -41,7 +50,7 @@ def get_ray_intersection(ray1: gt.Ray, ray2: gt.Ray) -> tuple[Decimal, Decimal] 
         return
     return u, v
 
-def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Segment]]:
+def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], gt.StarPolygon]:
     n = len(polygon.segments)
     rays: list[tuple[gt.Ray, gt.Ray]] = []
     for i in range(n):
@@ -64,7 +73,7 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Se
 
         rays.append((gt.Ray(origin_a, direction_a), gt.Ray(origin_b, direction_b)))
 
-    intersections_and_costs: list[tuple[gt.Ray, gt.Ray, gt.Vector2, Decimal]] = []
+    intersections: list[RayIntersection] = []
     for i, (ray1, ray2) in enumerate(rays):
         for j, (ray3, ray4) in enumerate(rays):
             # Ignore if the pairs are the same
@@ -89,43 +98,94 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Se
                 if not polygon.in_bounds(point):
                     continue
 
-                intersections_and_costs.append((test_r1, test_r2, point, cost))
+                r1_sibling = None
+                r2_sibling = None
+                for r, r_i in test_rays:
+                    if r_i == r1_i and test_r1 != r:
+                        r1_sibling = r
+                    elif r_i == r2_i and test_r2 != r:
+                        r2_sibling = r
 
-    intersections_and_costs.sort(key=lambda x: x[3])
+                # All rays have siblings so this
+                # should pass, this is just to silence
+                # my editor's type checker.
+                assert r1_sibling is not None and r2_sibling is not None
+                intersections.append(RayIntersection(test_r1, test_r2, point, cost, r1_sibling, r2_sibling))
+
+    intersections.sort(key=lambda x: x.cost)
     star_segments: list[gt.Segment] = []
-    encountered_rays: dict[gt.Ray, int] = {}
-    for ray1, ray2, point, cost in intersections_and_costs:
-        ray1_encounters = encountered_rays.get(ray1, 0)
-        ray2_encounters = encountered_rays.get(ray2, 0)
-        if ray1_encounters == STEP or ray2_encounters == STEP:
+    star_visible_segments: list[gt.Segment] = []
+    star_points: list[gt.Vector2] = []
+    encountered_rays: set[gt.Ray] = set()
+    for intersection in intersections:
+        if intersection.ray1 in encountered_rays or intersection.ray2 in encountered_rays:
             continue
 
-        ray1_encounters += 1
-        ray2_encounters += 1
+        try:
+            ray1_intersection_slope = (intersection.point.y - intersection.ray1.origin.y) / (intersection.point.x - intersection.ray1.origin.x)
+        except (DivisionByZero, InvalidOperation):
+            ray1_intersection_slope = 0
+        try:
+            ray2_intersection_slope = (intersection.ray2.origin.y - intersection.point.y) / (intersection.ray2.origin.x - intersection.point.x)
+        except (DivisionByZero, InvalidOperation):
+            ray2_intersection_slope = 0
 
-        ray1_segment = gt.Segment(ray1.origin, point)
-        ray2_segment = gt.Segment(ray2.origin, point)
-        star_segments.append(ray1_segment)
-        star_segments.append(ray2_segment)
+        points_colinear = (ray1_intersection_slope == ray2_intersection_slope)
+        if not points_colinear:
+            star_points.append(intersection.point)
 
-        encountered_rays[ray1] = ray1_encounters
-        encountered_rays[ray2] = ray2_encounters
+        if DELTA == 0.0:
+            if not points_colinear:
+                ray1_segment = gt.Segment(intersection.ray1.origin, intersection.point)
+                ray2_segment = gt.Segment(intersection.ray2.origin, intersection.point)
+                star_visible_segments.append(ray1_segment)
+                star_visible_segments.append(ray2_segment)
+            else:
+                ray_segment = gt.Segment(intersection.ray1.origin, intersection.ray2.origin)
+                star_visible_segments.append(ray_segment)
+            star_points.append(intersection.ray1.origin)
+            star_points.append(intersection.ray2.origin)
 
-    return [r for ray_pair in rays for r in ray_pair], star_segments
+        if DELTA > 0.0:
+            res1 = get_ray_intersection(intersection.ray1, intersection.ray1_sibling)
+            if res1:
+                u, v = res1
+                cost = u + v
+                point = intersection.ray1.origin + intersection.ray1.direction * u
+                star_points.append(point)
+                star_visible_segments.append(gt.Segment(intersection.ray1.origin, point))
+                star_segments.append(gt.Segment(point, intersection.point))
+            res2 = get_ray_intersection(intersection.ray2, intersection.ray2_sibling)
+            if res2:
+                u, v = res2
+                cost = u + v
+                point = intersection.ray2.origin + intersection.ray2.direction * u
+                star_points.append(point)
+                star_visible_segments.append(gt.Segment(intersection.ray2.origin, point))
+                star_segments.append(gt.Segment(point, intersection.point))
+
+        encountered_rays.add(intersection.ray1)
+        encountered_rays.add(intersection.ray2)
+
+    return [r for ray_pair in rays for r in ray_pair], gt.StarPolygon(star_points, star_segments + star_visible_segments, star_visible_segments)
 
 def main():
     # We use the Decimal module in the Python standard
     # library because it has more precise floats, and
     # avoids floating point woes.
     getcontext().prec = 4
-    tiling = tilings.regular_triangle_tiling(X_GRID_RANGE, Y_GRID_RANGE)
+    tiling = tilings.regular_square_tiling(X_GRID_RANGE, Y_GRID_RANGE)
 
     rays: list[gt.Ray] = []
     star_segments: list[gt.Segment] = []
     for tile in tiling.tiles:
-        new_rays, new_segments = kaplan_star_generator(tile)
-        rays += new_rays
-        star_segments += new_segments
+        poly = tile
+        for _ in range(0, STEPS):
+            new_rays, star_poly = kaplan_star_generator(poly)
+            rays += new_rays
+            star_segments += star_poly.segments
+            star_segments += star_poly.visible_segments
+            poly = star_poly
 
     x_scale_factor, y_scale_factor = Decimal(VIEW_X_GRID_RANGE / X_GRID_RANGE), Decimal(VIEW_Y_GRID_RANGE / Y_GRID_RANGE)
     with cairo.SVGSurface("output.svg", VIEW_X_GRID_RANGE, VIEW_Y_GRID_RANGE) as surface:

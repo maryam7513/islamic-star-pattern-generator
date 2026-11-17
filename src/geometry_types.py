@@ -105,6 +105,10 @@ class Polygon:
                 intersection_test_results.append(False)
         return intersection_test_results.count(True) > intersection_test_results.count(False)
 
+@dataclass
+class StarPolygon(Polygon):
+    visible_segments: list[Segment] = field(default_factory=list)
+
 @dataclass(frozen=True)
 class Tiling:
     tiles: list[Polygon] = field(default_factory=list)

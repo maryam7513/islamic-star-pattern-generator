@@ -1,4 +1,5 @@
 from decimal import Decimal, getcontext
+import itertools
 import math
 
 import cairo
@@ -15,8 +16,8 @@ VIEW_Y_GRID_RANGE = 1000
 
 # Star pattern parameters
 # TODO: Make this command line arguments
-CONTACT_ANGLE = Decimal(math.radians(30))
-DELTA = Decimal(0.0)
+CONTACT_ANGLE = Decimal(math.radians(25))
+DELTA = Decimal(0.1)
 STEP = 1
 
 
@@ -42,7 +43,7 @@ def get_ray_intersection(ray1: gt.Ray, ray2: gt.Ray) -> tuple[Decimal, Decimal] 
 
 def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Segment]]:
     n = len(polygon.segments)
-    rays: list[gt.Ray] = []
+    rays: list[tuple[gt.Ray, gt.Ray]] = []
     for i in range(n):
         segment = polygon.segments[i]
         midpoint = segment.midpoint()
@@ -61,24 +62,34 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Se
         direction_a = (edge_dir * cos_of_angle) + (inward_normal * sin_of_angle)
         direction_b = (edge_dir * -cos_of_angle) + (inward_normal * sin_of_angle)
 
-        rays.append(gt.Ray(origin_a, direction_a))
-        rays.append(gt.Ray(origin_b, direction_b))
+        rays.append((gt.Ray(origin_a, direction_a), gt.Ray(origin_b, direction_b)))
 
     intersections_and_costs: list[tuple[gt.Ray, gt.Ray, gt.Vector2, Decimal]] = []
-    for ray1 in rays:
-        for ray2 in rays:
-            if ray1 != ray2 and ray1.origin != ray2.origin:
-                res = get_ray_intersection(ray1, ray2)
+    for i, (ray1, ray2) in enumerate(rays):
+        for j, (ray3, ray4) in enumerate(rays):
+            # Ignore if the pairs are the same
+            if i == j:
+                continue
+
+            test_rays = [(ray1, i), (ray2, i), (ray3, j), (ray4, j)]
+            for (test_r1, r1_i), (test_r2, r2_i) in itertools.combinations(test_rays, 2):
+                # Do not count intersections
+                # between rays of the same pair
+                if r1_i == r2_i:
+                    continue
+                if test_r1.origin == test_r2.origin:
+                    continue
+                res = get_ray_intersection(test_r1, test_r2)
                 if not res:
                     continue
                 u, v = res
                 cost = u + v
-                point = ray1.origin + ray1.direction * u
+                point = test_r1.origin + test_r1.direction * u
 
                 if not polygon.in_bounds(point):
                     continue
 
-                intersections_and_costs.append((ray1, ray2, point, cost))
+                intersections_and_costs.append((test_r1, test_r2, point, cost))
 
     intersections_and_costs.sort(key=lambda x: x[3])
     star_segments: list[gt.Segment] = []
@@ -100,14 +111,14 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], list[gt.Se
         encountered_rays[ray1] = ray1_encounters
         encountered_rays[ray2] = ray2_encounters
 
-    return rays, star_segments
+    return [r for ray_pair in rays for r in ray_pair], star_segments
 
 def main():
     # We use the Decimal module in the Python standard
     # library because it has more precise floats, and
     # avoids floating point woes.
     getcontext().prec = 4
-    tiling = tilings.right_triangle_tiling(X_GRID_RANGE, Y_GRID_RANGE)
+    tiling = tilings.regular_triangle_tiling(X_GRID_RANGE, Y_GRID_RANGE)
 
     rays: list[gt.Ray] = []
     star_segments: list[gt.Segment] = []
@@ -152,8 +163,6 @@ def main():
             context.move_to(start_x, start_y)
             context.line_to(end_x, end_y)
             context.stroke()
-
-        return
 
         context.set_source_rgb(0, 0, 0)
         for segment in star_segments:

@@ -17,9 +17,9 @@ VIEW_Y_GRID_RANGE = 1000
 
 # Star pattern parameters
 # TODO: Make this command line arguments
-CONTACT_ANGLE = Decimal(math.radians(50))
+CONTACT_ANGLE = Decimal(math.radians(20))
 DELTA = Decimal(0.0)
-STEPS = 3
+STEPS = 1
 
 @dataclass(frozen=True)
 class RayIntersection:
@@ -57,40 +57,22 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], gt.StarPol
         rays.append((gt.Ray(origin_a, direction_a), gt.Ray(origin_b, direction_b)))
 
     intersections: list[RayIntersection] = []
-    for i, (ray1, ray2) in enumerate(rays):
-        for j, (ray3, ray4) in enumerate(rays):
-            # Ignore if the pairs are the same
-            if i == j:
+    for (ray1, ray2), (ray3, ray4) in itertools.combinations(rays, 2):
+        test_rays = [
+                (ray1, ray3, ray2, ray4),
+                (ray1, ray4, ray2, ray3),
+                (ray2, ray3, ray1, ray4),
+                (ray2, ray4, ray1, ray3),
+            ]
+        for r1, r2, r1_sibling, r2_sibling in test_rays:
+            res = r1.get_intersection_with(r2)
+            if not res:
                 continue
+            cost, point = res
 
-            test_rays = [(ray1, i), (ray2, i), (ray3, j), (ray4, j)]
-            for (test_r1, r1_i), (test_r2, r2_i) in itertools.combinations(test_rays, 2):
-                # Do not count intersections
-                # between rays of the same pair
-                if r1_i == r2_i:
-                    continue
-
-                res = test_r1.get_intersection_with(test_r2)
-                if not res:
-                    continue
-                cost, point = res
-
-                if not polygon.in_bounds(point):
-                    continue
-
-                r1_sibling = None
-                r2_sibling = None
-                for r, r_i in test_rays:
-                    if r_i == r1_i and test_r1 != r:
-                        r1_sibling = r
-                    elif r_i == r2_i and test_r2 != r:
-                        r2_sibling = r
-
-                # All rays have siblings so this
-                # should pass, this is just to silence
-                # my editor's type checker.
-                assert r1_sibling is not None and r2_sibling is not None
-                intersections.append(RayIntersection(test_r1, test_r2, point, cost, r1_sibling, r2_sibling))
+            if not polygon.in_bounds(point):
+                continue
+            intersections.append(RayIntersection(r1, r2, point, cost, r1_sibling, r2_sibling))
 
     intersections.sort(key=lambda x: x.cost)
     star_segments: list[gt.Segment] = []
@@ -126,7 +108,7 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], gt.StarPol
             star_points.append(intersection.ray1.origin)
             star_points.append(intersection.ray2.origin)
 
-        if DELTA > 0.0:
+        elif DELTA > 0.0:
             res1 = intersection.ray1.get_intersection_with(intersection.ray1_sibling)
             if res1:
                 _, point = res1
@@ -150,7 +132,7 @@ def main():
     # library because it has more precise floats, and
     # avoids floating point woes.
     getcontext().prec = 4
-    tiling = tilings.regular_square_tiling(X_GRID_RANGE, Y_GRID_RANGE)
+    tiling = tilings.regular_triangle_tiling(X_GRID_RANGE, Y_GRID_RANGE)
 
     rays: list[gt.Ray] = []
     star_segments: list[gt.Segment] = []
@@ -169,36 +151,36 @@ def main():
         context.set_line_width(0.5)
 
         # Debug, see source tilings
-        RED = (1, 0, 0)
-        BLUE = (0, 0, 1)
-        current_color = RED
-        for tile in tiling.tiles:
-            # Alternate per tile to make
-            # debugging easier
-            current_color = RED if current_color == BLUE else BLUE
-            context.set_source_rgb(*current_color)
-            for segment in tile.segments:
-                start_x = float(segment.start.x * x_scale_factor)
-                start_y = float(VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor))
-                end_x = float(segment.end.x * x_scale_factor)
-                end_y = float(VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor))
-                context.move_to(start_x, start_y)
-                context.line_to(end_x, end_y)
-                context.stroke()
+        # RED = (1, 0, 0)
+        # BLUE = (0, 0, 1)
+        # current_color = RED
+        # for tile in tiling.tiles:
+        #     # Alternate per tile to make
+        #     # debugging easier
+        #     current_color = RED if current_color == BLUE else BLUE
+        #     context.set_source_rgb(*current_color)
+        #     for segment in tile.segments:
+        #         start_x = float(segment.start.x * x_scale_factor)
+        #         start_y = float(VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor))
+        #         end_x = float(segment.end.x * x_scale_factor)
+        #         end_y = float(VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor))
+        #         context.move_to(start_x, start_y)
+        #         context.line_to(end_x, end_y)
+        #         context.stroke()
 
-        for ray in rays:
-            current_color = RED if current_color == BLUE else BLUE
-            context.set_source_rgb(*current_color)
-            normalized_direction = ray.direction.normalize()
-            ray_end = ray.origin + (normalized_direction * Decimal(0.25))
-            start_x = float(ray.origin.x * x_scale_factor)
-            start_y = float(VIEW_Y_GRID_RANGE - (ray.origin.y * y_scale_factor))
-            end_x = float(ray_end.x * x_scale_factor)
-            end_y = float(VIEW_Y_GRID_RANGE - (ray_end.y * y_scale_factor))
+        # for ray in rays:
+        #     current_color = RED if current_color == BLUE else BLUE
+        #     context.set_source_rgb(*current_color)
+        #     normalized_direction = ray.direction.normalize()
+        #     ray_end = ray.origin + (normalized_direction * Decimal(0.25))
+        #     start_x = float(ray.origin.x * x_scale_factor)
+        #     start_y = float(VIEW_Y_GRID_RANGE - (ray.origin.y * y_scale_factor))
+        #     end_x = float(ray_end.x * x_scale_factor)
+        #     end_y = float(VIEW_Y_GRID_RANGE - (ray_end.y * y_scale_factor))
 
-            context.move_to(start_x, start_y)
-            context.line_to(end_x, end_y)
-            context.stroke()
+        #     context.move_to(start_x, start_y)
+        #     context.line_to(end_x, end_y)
+        #     context.stroke()
 
         context.set_source_rgb(0, 0, 0)
         for segment in star_segments:

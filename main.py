@@ -33,23 +33,6 @@ class RayIntersection:
 # Most of this code is borrowed from a side
 # project, which I decided to turn into my
 # final project.
-def get_ray_intersection(ray1: gt.Ray, ray2: gt.Ray) -> tuple[Decimal, Decimal] | None:
-    if ray1.origin == ray2.origin:
-        return
-
-    d = ray2.origin - ray1.origin
-    det = ray1.direction.cross(ray2.direction)
-
-    if det == 0:
-        return None
-
-    u = d.cross(ray2.direction) / det
-    v = d.cross(ray1.direction) / det
-
-    if u <= 1e-9 or v <= 1e-9:
-        return
-    return u, v
-
 def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], gt.StarPolygon]:
     n = len(polygon.segments)
     rays: list[tuple[gt.Ray, gt.Ray]] = []
@@ -86,14 +69,11 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], gt.StarPol
                 # between rays of the same pair
                 if r1_i == r2_i:
                     continue
-                if test_r1.origin == test_r2.origin:
-                    continue
-                res = get_ray_intersection(test_r1, test_r2)
+
+                res = test_r1.get_intersection_with(test_r2)
                 if not res:
                     continue
-                u, v = res
-                cost = u + v
-                point = test_r1.origin + test_r1.direction * u
+                cost, point = res
 
                 if not polygon.in_bounds(point):
                     continue
@@ -147,19 +127,15 @@ def kaplan_star_generator(polygon: gt.Polygon) -> tuple[list[gt.Ray], gt.StarPol
             star_points.append(intersection.ray2.origin)
 
         if DELTA > 0.0:
-            res1 = get_ray_intersection(intersection.ray1, intersection.ray1_sibling)
+            res1 = intersection.ray1.get_intersection_with(intersection.ray1_sibling)
             if res1:
-                u, v = res1
-                cost = u + v
-                point = intersection.ray1.origin + intersection.ray1.direction * u
+                _, point = res1
                 star_points.append(point)
                 star_visible_segments.append(gt.Segment(intersection.ray1.origin, point))
                 star_segments.append(gt.Segment(point, intersection.point))
-            res2 = get_ray_intersection(intersection.ray2, intersection.ray2_sibling)
+            res2 = intersection.ray2.get_intersection_with(intersection.ray2_sibling)
             if res2:
-                u, v = res2
-                cost = u + v
-                point = intersection.ray2.origin + intersection.ray2.direction * u
+                _, point = res2
                 star_points.append(point)
                 star_visible_segments.append(gt.Segment(intersection.ray2.origin, point))
                 star_segments.append(gt.Segment(point, intersection.point))

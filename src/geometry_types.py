@@ -42,6 +42,26 @@ class Ray:
     origin: Vector2
     direction: Vector2
 
+    def get_intersection_with(self, ray2: Ray) -> tuple[Decimal, Vector2] | None:
+        if self.origin == ray2.origin:
+            return
+
+        d = ray2.origin - self.origin
+        det = self.direction.cross(ray2.direction)
+
+        if det == 0:
+            return None
+
+        u = d.cross(ray2.direction) / det
+        v = d.cross(self.direction) / det
+
+        if u <= 1e-9 or v <= 1e-9:
+            return
+
+        cost = u + v
+        point = self.origin + self.direction * u
+        return cost, point
+
 @dataclass
 class Polygon:
     vertices: list[Vector2]

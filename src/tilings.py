@@ -29,6 +29,10 @@ class Tiling:
                     polygon_to_tile = polygon_to_tile.translate(instruction.offset + local_offset)
                     yield polygon_to_tile
 
+@dataclass(frozen=True)
+class LayeredTiling(Tiling):
+    additional_layers: list[Tiling] = field(default_factory=list)
+
 def regular_square_tiling() -> Tiling:
     """Create a grid of regular squares."""
     tiling = Tiling()

@@ -134,16 +134,19 @@ def main():
     getcontext().prec = 4
     tiling = tilings.regular_triangle_tiling()
 
+    source_tiles = tiling.unique_tiles
+    layers: list[tilings.Tiling] = []
     rays: list[gt.Ray] = []
-    star_segments: list[gt.Segment] = []
-    for tile in tiling.generate_tiling(X_GRID_RANGE, Y_GRID_RANGE):
-        poly = tile
-        for _ in range(0, STEPS):
+    for s in range(0, STEPS):
+        next_tiles: list[gt.Polygon] = []
+        for poly in source_tiles:
             new_rays, star_poly = kaplan_star_generator(poly)
+            next_tiles.append(star_poly)
             rays += new_rays
-            star_segments += star_poly.segments
-            star_segments += star_poly.visible_segments
-            poly = star_poly
+        new_layer = tilings.Tiling(next_tiles, tiling.tiling_instructions)
+        layers.append(new_layer)
+        source_tiles = next_tiles
+    star_tiling = tilings.LayeredTiling(layers[0].unique_tiles, tiling.tiling_instructions, layers[1:])
 
     x_scale_factor, y_scale_factor = Decimal(VIEW_X_GRID_RANGE / X_GRID_RANGE), Decimal(VIEW_Y_GRID_RANGE / Y_GRID_RANGE)
     with cairo.SVGSurface("output.svg", VIEW_X_GRID_RANGE, VIEW_Y_GRID_RANGE) as surface:
@@ -183,16 +186,19 @@ def main():
         #     context.stroke()
 
         context.set_source_rgb(0, 0, 0)
-        for segment in star_segments:
-            # We have to flip the Y-coordinates for SVG
-            start_x = float(segment.start.x * x_scale_factor)
-            start_y = float(VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor))
-            end_x = float(segment.end.x * x_scale_factor)
-            end_y = float(VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor))
+        for t in [star_tiling] + star_tiling.additional_layers:
+            for poly in t.generate_tiling(X_GRID_RANGE, Y_GRID_RANGE):
+                assert isinstance(poly, gt.StarPolygon)
+                for segment in poly.visible_segments:
+                    # We have to flip the Y-coordinates for SVG
+                    start_x = float(segment.start.x * x_scale_factor)
+                    start_y = float(VIEW_Y_GRID_RANGE - (segment.start.y * y_scale_factor))
+                    end_x = float(segment.end.x * x_scale_factor)
+                    end_y = float(VIEW_Y_GRID_RANGE - (segment.end.y * y_scale_factor))
 
-            context.move_to(start_x, start_y)
-            context.line_to(end_x, end_y)
-            context.stroke()
+                    context.move_to(start_x, start_y)
+                    context.line_to(end_x, end_y)
+                    context.stroke()
 
 if __name__ == "__main__":
     main()

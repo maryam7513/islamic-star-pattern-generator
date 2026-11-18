@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 import math
 import random
+from typing import override
 
 @dataclass(frozen=True)
 class Vector2:
@@ -157,3 +158,14 @@ class Polygon:
 @dataclass
 class StarPolygon(Polygon):
     visible_segments: list[Segment] = field(default_factory=list)
+
+    @override
+    def translate(self, translation_vector: Vector2) -> 'Polygon':
+        return StarPolygon([v + translation_vector for v in self.vertices], [segment.translate(translation_vector) for segment in self.segments], [vs.translate(translation_vector) for vs in self.visible_segments])
+
+    @override
+    def rotate(self, radians: Decimal, pivot: Vector2 | None = None) -> 'Polygon':
+        center = self.average_center if pivot is None else pivot
+        return StarPolygon([v.rotate_around_center(radians, center) for v in self.vertices],
+                       [segment.rotate_around_center(radians, center) for segment in self.segments],
+                       [vs.rotate_around_center(radians, center) for vs in self.visible_segments])

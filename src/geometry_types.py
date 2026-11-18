@@ -23,11 +23,23 @@ class Vector2:
     def cross(self, other: 'Vector2') -> Decimal:
         return self.x * other.y - self.y * other.x
 
+    def dot(self, other: 'Vector2') -> Decimal:
+        return self.x * other.x + self.y * other.y
+
     def magnitude(self) -> Decimal:
         return Decimal(math.hypot(self.x, self.y))
 
     def normalize(self) -> 'Vector2':
         return self / self.magnitude()
+
+    def rotate_around_center(self, radians: Decimal, center: Vector2) -> 'Vector2':
+        s = Decimal(math.sin(radians))
+        c = Decimal(math.cos(radians))
+
+        translated_vector = self - center
+        rotated_vector = Vector2(translated_vector.x * c - translated_vector.y * s,
+                                 translated_vector.x * s + translated_vector.y * c)
+        return rotated_vector + center
 
 @dataclass(frozen=True)
 class Segment:
@@ -36,6 +48,12 @@ class Segment:
 
     def midpoint(self) -> Vector2:
         return (self.start + self.end) / Decimal(2)
+
+    def translate(self, translation_vector: Vector2) -> 'Segment':
+        return Segment(self.start + translation_vector, self.end + translation_vector)
+
+    def rotate_around_center(self, radians: Decimal, center: Vector2) -> 'Segment':
+        return Segment(self.start.rotate_around_center(radians, center), self.end.rotate_around_center(radians, center))
 
 @dataclass(frozen=True)
 class Ray:
@@ -69,6 +87,7 @@ class Polygon:
     bounds_x: tuple[Decimal, Decimal] = field(init=False)
     bounds_y: tuple[Decimal, Decimal] = field(init=False)
     bound_rect_segments: list[Segment] = field(init=False)
+    average_center: Vector2 = field(init=False)
 
     def __post_init__(self):
         self.bounds_x = (min(p.x for p in self.vertices), max(p.x for p in self.vertices))
@@ -82,6 +101,16 @@ class Polygon:
             Segment(Vector2(self.bounds_x[1], self.bounds_y[1]), Vector2(self.bounds_x[0], self.bounds_y[1])),
             Segment(Vector2(self.bounds_x[0], self.bounds_y[1]), Vector2(self.bounds_x[0], self.bounds_y[0])),
         ]
+        self.average_center = Vector2(Decimal(sum(v.x for v in self.vertices) / len(self.vertices)),
+                                      Decimal(sum(v.y for v in self.vertices) / len(self.vertices)))
+
+    def translate(self, translation_vector: Vector2) -> 'Polygon':
+        return Polygon([v + translation_vector for v in self.vertices], [segment.translate(translation_vector) for segment in self.segments])
+
+    def rotate(self, radians: Decimal, pivot: Vector2 | None = None) -> 'Polygon':
+        center = self.average_center if pivot is None else pivot
+        return Polygon([v.rotate_around_center(radians, center) for v in self.vertices],
+                       [segment.rotate_around_center(radians, center) for segment in self.segments])
 
     def in_bounds(self, point: Vector2) -> bool:
         test_points: list[Vector2] = []
@@ -128,8 +157,3 @@ class Polygon:
 @dataclass
 class StarPolygon(Polygon):
     visible_segments: list[Segment] = field(default_factory=list)
-
-@dataclass(frozen=True)
-class Tiling:
-    tiles: list[Polygon] = field(default_factory=list)
-

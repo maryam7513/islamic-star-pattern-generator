@@ -132,11 +132,11 @@ def main():
     # library because it has more precise floats, and
     # avoids floating point woes.
     getcontext().prec = 4
-    tiling = tilings.regular_triangle_tiling(X_GRID_RANGE, Y_GRID_RANGE)
+    tiling = tilings.regular_triangle_tiling()
 
     rays: list[gt.Ray] = []
     star_segments: list[gt.Segment] = []
-    for tile in tiling.tiles:
+    for tile in tiling.generate_tiling(X_GRID_RANGE, Y_GRID_RANGE):
         poly = tile
         for _ in range(0, STEPS):
             new_rays, star_poly = kaplan_star_generator(poly)
